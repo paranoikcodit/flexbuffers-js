@@ -1,0 +1,61 @@
+{
+  "name": "flexbuffers-js",
+  "version": "0.1.0",
+  "description": "FlexBuffers implementation for JavaScript/TypeScript using napi-rs",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "napi": {
+    "name": "flexbuffers-js",
+    "triples": {
+      "defaults": true,
+      "additional": [
+        "x86_64-apple-darwin",
+        "aarch64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "i686-pc-windows-msvc",
+        "aarch64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu",
+        "x86_64-unknown-linux-musl",
+        "aarch64-unknown-linux-gnu",
+        "aarch64-unknown-linux-musl",
+        "armv7-unknown-linux-gnueabihf",
+        "armv7-unknown-linux-musleabihf",
+        "aarch64-linux-android",
+        "armv7-linux-androideabi",
+        "x86_64-unknown-freebsd",
+        "riscv64gc-unknown-linux-gnu",
+        "s390x-unknown-linux-gnu"
+      ]
+    }
+  },
+  "scripts": {
+    "build": "napi build --platform --release",
+    "build:debug": "napi build --platform",
+    "prepublishOnly": "napi prepublish -t npm",
+    "artifacts": "napi artifacts",
+    "test": "bun test",
+    "test:node": "node --test",
+    "test:watch": "bun test --watch",
+    "test:coverage": "bun test --coverage",
+    "bench": "bun run benchmarks/flexbuffers.bench.ts",
+    "bench:json": "bun run benchmarks/flexbuffers.bench.ts",
+    "version": "napi version",
+    "postinstall": "node scripts/postinstall.js"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^2.18.0",
+    "@types/bun": "latest",
+    "@types/node": "24.0.3",
+    "mitata": "^1.0.34",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">= 14"
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "*.node",
+    "scripts/postinstall.js"
+  ]
+}
