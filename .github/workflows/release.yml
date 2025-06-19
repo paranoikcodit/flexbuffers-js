@@ -121,50 +121,51 @@ jobs:
           # Find the generated .node file
           for f in *.node; do
             if [ -f "$f" ]; then
+              echo "Found file: $f"
+              target_name=""
+              
               # Map Rust target to platform names expected by index.js
               case "${{ matrix.settings.target }}" in
                 "x86_64-apple-darwin") 
-                  mv "$f" "flexbuffers-js.darwin-x64.node"
-                  echo "Renamed $f to flexbuffers-js.darwin-x64.node"
+                  target_name="flexbuffers-js.darwin-x64.node"
                   ;;
                 "aarch64-apple-darwin")
-                  mv "$f" "flexbuffers-js.darwin-arm64.node"
-                  echo "Renamed $f to flexbuffers-js.darwin-arm64.node"
+                  target_name="flexbuffers-js.darwin-arm64.node"
                   ;;
                 "x86_64-pc-windows-msvc")
-                  mv "$f" "flexbuffers-js.win32-x64-msvc.node"
-                  echo "Renamed $f to flexbuffers-js.win32-x64-msvc.node"
+                  target_name="flexbuffers-js.win32-x64-msvc.node"
                   ;;
                 "i686-pc-windows-msvc")
-                  mv "$f" "flexbuffers-js.win32-ia32-msvc.node"
-                  echo "Renamed $f to flexbuffers-js.win32-ia32-msvc.node"
+                  target_name="flexbuffers-js.win32-ia32-msvc.node"
                   ;;
                 "aarch64-pc-windows-msvc")
-                  mv "$f" "flexbuffers-js.win32-arm64-msvc.node"
-                  echo "Renamed $f to flexbuffers-js.win32-arm64-msvc.node"
+                  target_name="flexbuffers-js.win32-arm64-msvc.node"
                   ;;
                 "x86_64-unknown-linux-gnu")
-                  mv "$f" "flexbuffers-js.linux-x64-gnu.node"
-                  echo "Renamed $f to flexbuffers-js.linux-x64-gnu.node"
+                  target_name="flexbuffers-js.linux-x64-gnu.node"
                   ;;
                 "x86_64-unknown-linux-musl")
-                  mv "$f" "flexbuffers-js.linux-x64-musl.node"
-                  echo "Renamed $f to flexbuffers-js.linux-x64-musl.node"
+                  target_name="flexbuffers-js.linux-x64-musl.node"
                   ;;
                 "aarch64-unknown-linux-gnu")
-                  mv "$f" "flexbuffers-js.linux-arm64-gnu.node"
-                  echo "Renamed $f to flexbuffers-js.linux-arm64-gnu.node"
+                  target_name="flexbuffers-js.linux-arm64-gnu.node"
                   ;;
                 "aarch64-unknown-linux-musl")
-                  mv "$f" "flexbuffers-js.linux-arm64-musl.node"
-                  echo "Renamed $f to flexbuffers-js.linux-arm64-musl.node"
+                  target_name="flexbuffers-js.linux-arm64-musl.node"
                   ;;
                 *)
                   # Keep original Rust target name for unsupported platforms
-                  mv "$f" "flexbuffers-js.${{ matrix.settings.target }}.node"
-                  echo "Renamed $f to flexbuffers-js.${{ matrix.settings.target }}.node"
+                  target_name="flexbuffers-js.${{ matrix.settings.target }}.node"
                   ;;
               esac
+              
+              # Only rename if the names are different
+              if [ "$f" != "$target_name" ]; then
+                mv "$f" "$target_name"
+                echo "Renamed $f to $target_name"
+              else
+                echo "File $f already has the correct name"
+              fi
             fi
           done
           ls -la *.node
