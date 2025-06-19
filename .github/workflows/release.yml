@@ -111,12 +111,29 @@ jobs:
         shell: bash
         run: ${{ matrix.settings.build }}
       
+      - name: List built files
+        shell: bash
+        run: ls -la *.node || echo "No .node files found"
+      
+      - name: Rename binaries to match target names
+        shell: bash
+        run: |
+          # Find the generated .node file
+          for f in *.node; do
+            if [ -f "$f" ]; then
+              # Rename to match our target naming convention
+              mv "$f" "flexbuffers-js.${{ matrix.settings.target }}.node"
+              echo "Renamed $f to flexbuffers-js.${{ matrix.settings.target }}.node"
+            fi
+          done
+          ls -la *.node
+      
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: bindings-${{ matrix.settings.target }}
           path: |
-            *.node
+            flexbuffers-js.${{ matrix.settings.target }}.node
             index.js
             index.d.ts
           if-no-files-found: error
@@ -143,46 +160,45 @@ jobs:
         run: |
           mkdir -p npm-packages
           
+          # List all artifacts for debugging
+          echo "=== Listing all artifacts ==="
+          find artifacts -name "*.node" -type f
+          
+          # Copy all .node files to root for packaging
+          find artifacts -name "*.node" -type f -exec cp {} . \;
+          
           # Create main package
           cp package.json npm-packages/
-          cp README.md npm-packages/
+          cp README.md npm-packages/ || echo "No README.md found"
           cp index.js npm-packages/
           cp index.d.ts npm-packages/
           
-          # Create platform-specific packages
-          for dir in artifacts/bindings-*; do
-            if [ -d "$dir" ]; then
-              target=$(basename "$dir" | sed 's/bindings-//')
-              pkg_name="@flexbuffers-js/${target}"
-              pkg_dir="npm-packages/${target}"
-              
-              mkdir -p "$pkg_dir"
-              cp "$dir"/*.node "$pkg_dir/" 2>/dev/null || true
-              
-              # Create package.json for platform package
-              cat > "$pkg_dir/package.json" << EOF
-          {
-            "name": "$pkg_name",
-            "version": "$(node -p "require('./package.json').version")",
-            "os": ["$(echo $target | cut -d- -f3)"],
-            "cpu": ["$(echo $target | cut -d- -f1)"],
-            "main": "$(ls $dir/*.node | xargs basename)",
-            "files": ["*.node"]
-          }
-          EOF
-            fi
-          done
+          # Copy all binaries to main package
+          cp *.node npm-packages/ || echo "No .node files to copy"
           
           # Create tarballs
           cd npm-packages
           tar czf ../flexbuffers-js.tar.gz .
           cd ..
           
-          # Create individual platform tarballs
-          for dir in npm-packages/*/; do
-            if [ -d "$dir" ] && [ "$dir" != "npm-packages//" ]; then
-              platform=$(basename "$dir")
-              tar czf "flexbuffers-js-${platform}.tar.gz" -C "$dir" .
+          # Create individual platform tarballs for each binary
+          for node_file in *.node; do
+            if [ -f "$node_file" ]; then
+              platform=$(echo "$node_file" | sed 's/flexbuffers-js\.//' | sed 's/\.node//')
+              mkdir -p "npm-packages/${platform}"
+              cp "$node_file" "npm-packages/${platform}/"
+              
+              # Simple package.json for platform package
+              cat > "npm-packages/${platform}/package.json" << EOF
+          {
+            "name": "@flexbuffers-js/${platform}",
+            "version": "$(node -p "require('./package.json').version")",
+            "main": "${node_file}",
+            "files": ["*.node"]
+          }
+          EOF
+              
+              tar czf "flexbuffers-js-${platform}.tar.gz" -C "npm-packages/${platform}" .
             fi
           done
       
@@ -195,6 +211,6 @@ jobs:
           files: |
             flexbuffers-js.tar.gz
             flexbuffers-js-*.tar.gz
-            artifacts/bindings-*/*.node
+            flexbuffers-js.*.node
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
