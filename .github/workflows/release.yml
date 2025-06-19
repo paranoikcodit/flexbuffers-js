@@ -186,53 +186,15 @@ jobs:
             fi
           done
       
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create Release with Assets
+        uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
+          name: Release ${{ github.ref }}
           draft: false
           prerelease: false
-      
-      - name: Upload Release Assets
+          files: |
+            flexbuffers-js.tar.gz
+            flexbuffers-js-*.tar.gz
+            artifacts/bindings-*/*.node
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          upload_url="${{ steps.create_release.outputs.upload_url }}"
-          
-          # Upload main package
-          curl -X POST \
-            -H "Authorization: token $GITHUB_TOKEN" \
-            -H "Content-Type: application/gzip" \
-            --data-binary @flexbuffers-js.tar.gz \
-            "${upload_url}?name=flexbuffers-js.tar.gz&label=Main%20Package"
-          
-          # Upload platform-specific packages
-          for file in flexbuffers-js-*.tar.gz; do
-            if [ -f "$file" ]; then
-              curl -X POST \
-                -H "Authorization: token $GITHUB_TOKEN" \
-                -H "Content-Type: application/gzip" \
-                --data-binary @"$file" \
-                "${upload_url}?name=${file}&label=${file%.tar.gz}"
-            fi
-          done
-          
-          # Upload raw binaries
-          for dir in artifacts/bindings-*; do
-            if [ -d "$dir" ]; then
-              for node_file in "$dir"/*.node; do
-                if [ -f "$node_file" ]; then
-                  filename=$(basename "$node_file")
-                  curl -X POST \
-                    -H "Authorization: token $GITHUB_TOKEN" \
-                    -H "Content-Type: application/octet-stream" \
-                    --data-binary @"$node_file" \
-                    "${upload_url}?name=${filename}&label=${filename}"
-                fi
-              done
-            fi
-          done
