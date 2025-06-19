@@ -74,8 +74,6 @@ jobs:
           name: ${{ matrix.name }}
           path: |
             flexbuffers-js.${{ matrix.name }}.node
-            index.js
-            index.d.ts
 
   release:
     needs: build
@@ -94,8 +92,6 @@ jobs:
       - name: Prepare release files
         run: |
           find artifacts -name "*.node" -exec cp {} . \;
-          find artifacts -name "index.js" -exec cp {} . \; || true
-          find artifacts -name "index.d.ts" -exec cp {} . \; || true
           ls -la *.node
       
       - name: Create Release
@@ -103,7 +99,5 @@ jobs:
         with:
           files: |
             flexbuffers-js.*.node
-            index.js
-            index.d.ts
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
