@@ -1,0 +1,75 @@
+# Bun configuration for flexbuffers-js
+
+[install]
+# Использовать точные версии пакетов
+exact = true
+
+# Автоматически устанавливать peer dependencies
+peer = true
+
+# Не сохранять необязательные зависимости
+optional = false
+
+# Использовать жесткие ссылки для экономии места
+hardlinks = true
+
+# Директория для глобального кеша
+globalDir = "~/.bun"
+
+[install.scopes]
+# Настройки для приватных пакетов
+"@flexbuffers-js" = { token = "$GITHUB_TOKEN", url = "https://npm.pkg.github.com" }
+
+[install.cache]
+# Директория для кеша
+dir = "~/.bun/install/cache"
+
+# Отключить кеш (не рекомендуется)
+disable = false
+
+# TTL для кеша в секундах (7 дней)
+ttl = 604800
+
+[install.lockfile]
+# Сохранять lockfile
+save = true
+
+# Печатать изменения в lockfile
+print = "yarn"
+
+[run]
+# Автоматически устанавливать пакеты при запуске скриптов
+install = true
+
+# Тихий режим
+silent = false
+
+# Использовать системный shell для выполнения скриптов
+shell = "bun"
+
+[test]
+# Корневая директория для тестов
+root = "./tests"
+
+# Паттерн для поиска тестовых файлов
+pattern = "**/*.{test,spec}.{js,ts,jsx,tsx}"
+
+# Таймаут для тестов в миллисекундах
+timeout = 5000
+
+# Режим watch
+watch = false
+
+# Покрытие кода
+coverage = false
+
+# Препроцессор для тестов
+preload = []
+
+[debug]
+# Включить отладочную информацию
+htmx = false
+
+[telemetry]
+# Отключить телеметрию
+enabled = false

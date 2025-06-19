@@ -1,0 +1,236 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          - host: macos-latest
+            target: x86_64-apple-darwin
+            build: |
+              bun install
+              bun run build
+              strip -x *.node
+          - host: macos-latest
+            target: aarch64-apple-darwin
+            build: |
+              bun install
+              bun run build
+              strip -x *.node
+          - host: windows-latest
+            target: x86_64-pc-windows-msvc
+            build: |
+              bun install
+              bun run build
+          - host: windows-latest
+            target: i686-pc-windows-msvc
+            build: |
+              rustup target add i686-pc-windows-msvc
+              bun install
+              bun run build --target i686-pc-windows-msvc
+          - host: windows-latest
+            target: aarch64-pc-windows-msvc
+            build: |
+              rustup target add aarch64-pc-windows-msvc
+              bun install
+              bun run build --target aarch64-pc-windows-msvc
+          - host: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian
+            build: >-
+              set -e &&
+              npm install -g bun &&
+              bun install &&
+              bun run build --target x86_64-unknown-linux-gnu &&
+              strip *.node
+          - host: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
+            build: >-
+              set -e &&
+              npm install -g bun &&
+              bun install &&
+              bun run build --target x86_64-unknown-linux-musl &&
+              strip *.node
+          - host: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian-aarch64
+            build: >-
+              set -e &&
+              npm install -g bun &&
+              bun install &&
+              bun run build --target aarch64-unknown-linux-gnu &&
+              aarch64-unknown-linux-gnu-strip *.node
+          - host: ubuntu-latest
+            target: aarch64-unknown-linux-musl
+            docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
+            build: >-
+              set -e &&
+              rustup target add aarch64-unknown-linux-musl &&
+              npm install -g bun &&
+              bun install &&
+              bun run build --target aarch64-unknown-linux-musl &&
+              aarch64-unknown-linux-musl-strip *.node
+    name: Build - ${{ matrix.settings.target }}
+    runs-on: ${{ matrix.settings.host }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Bun
+        if: ${{ !matrix.settings.docker }}
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      
+      - name: Setup Rust
+        if: ${{ !matrix.settings.docker }}
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.settings.target }}
+          override: true
+      
+      - name: Build in Docker
+        if: ${{ matrix.settings.docker }}
+        uses: docker://ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian
+        with:
+          args: >
+            bash -c "${{ matrix.settings.build }}"
+      
+      - name: Build
+        if: ${{ !matrix.settings.docker }}
+        shell: bash
+        run: ${{ matrix.settings.build }}
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bindings-${{ matrix.settings.target }}
+          path: |
+            *.node
+            index.js
+            index.d.ts
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      
+      - name: Create npm packages
+        run: |
+          mkdir -p npm-packages
+          
+          # Create main package
+          cp package.json npm-packages/
+          cp README.md npm-packages/
+          cp index.js npm-packages/
+          cp index.d.ts npm-packages/
+          
+          # Create platform-specific packages
+          for dir in artifacts/bindings-*; do
+            if [ -d "$dir" ]; then
+              target=$(basename "$dir" | sed 's/bindings-//')
+              pkg_name="@flexbuffers-js/${target}"
+              pkg_dir="npm-packages/${target}"
+              
+              mkdir -p "$pkg_dir"
+              cp "$dir"/*.node "$pkg_dir/" 2>/dev/null || true
+              
+              # Create package.json for platform package
+              cat > "$pkg_dir/package.json" << EOF
+          {
+            "name": "$pkg_name",
+            "version": "$(node -p "require('./package.json').version")",
+            "os": ["$(echo $target | cut -d- -f3)"],
+            "cpu": ["$(echo $target | cut -d- -f1)"],
+            "main": "$(ls $dir/*.node | xargs basename)",
+            "files": ["*.node"]
+          }
+          EOF
+            fi
+          done
+          
+          # Create tarballs
+          cd npm-packages
+          tar czf ../flexbuffers-js.tar.gz .
+          cd ..
+          
+          # Create individual platform tarballs
+          for dir in npm-packages/*/; do
+            if [ -d "$dir" ] && [ "$dir" != "npm-packages//" ]; then
+              platform=$(basename "$dir")
+              tar czf "flexbuffers-js-${platform}.tar.gz" -C "$dir" .
+            fi
+          done
+      
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+      
+      - name: Upload Release Assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          upload_url="${{ steps.create_release.outputs.upload_url }}"
+          
+          # Upload main package
+          curl -X POST \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Content-Type: application/gzip" \
+            --data-binary @flexbuffers-js.tar.gz \
+            "${upload_url}?name=flexbuffers-js.tar.gz&label=Main%20Package"
+          
+          # Upload platform-specific packages
+          for file in flexbuffers-js-*.tar.gz; do
+            if [ -f "$file" ]; then
+              curl -X POST \
+                -H "Authorization: token $GITHUB_TOKEN" \
+                -H "Content-Type: application/gzip" \
+                --data-binary @"$file" \
+                "${upload_url}?name=${file}&label=${file%.tar.gz}"
+            fi
+          done
+          
+          # Upload raw binaries
+          for dir in artifacts/bindings-*; do
+            if [ -d "$dir" ]; then
+              for node_file in "$dir"/*.node; do
+                if [ -f "$node_file" ]; then
+                  filename=$(basename "$node_file")
+                  curl -X POST \
+                    -H "Authorization: token $GITHUB_TOKEN" \
+                    -H "Content-Type: application/octet-stream" \
+                    --data-binary @"$node_file" \
+                    "${upload_url}?name=${filename}&label=${filename}"
+                fi
+              done
+            fi
+          done
