@@ -18,20 +18,20 @@ const FORCE_BUILD = process.env.FLEXBUFFERS_FORCE_BUILD === 'true';
 const USE_GH_CLI = process.env.FLEXBUFFERS_USE_GH_CLI !== 'false'; // Default to true
 const CACHE_DIR = process.env.FLEXBUFFERS_CACHE_DIR || join(homedir(), '.cache', 'flexbuffers-js');
 
-// Platform mapping with more variants
+// Platform mapping - matches index.js expectations
 const PLATFORM_MAP = {
-  'darwin-x64': 'x86_64-apple-darwin',
-  'darwin-arm64': 'aarch64-apple-darwin',
-  'win32-x64': 'x86_64-pc-windows-msvc',
-  'win32-ia32': 'i686-pc-windows-msvc',
-  'win32-arm64': 'aarch64-pc-windows-msvc',
-  'linux-x64': 'x86_64-unknown-linux-gnu',
-  'linux-arm64': 'aarch64-unknown-linux-gnu',
-  'linux-x64-musl': 'x86_64-unknown-linux-musl',
-  'linux-arm64-musl': 'aarch64-unknown-linux-musl',
-  'freebsd-x64': 'x86_64-unknown-freebsd',
-  'linux-riscv64': 'riscv64gc-unknown-linux-gnu',
-  'linux-s390x': 's390x-unknown-linux-gnu',
+  'darwin-x64': 'darwin-x64',
+  'darwin-arm64': 'darwin-arm64',
+  'win32-x64': 'win32-x64-msvc',
+  'win32-ia32': 'win32-ia32-msvc',
+  'win32-arm64': 'win32-arm64-msvc',
+  'linux-x64': 'linux-x64-gnu',
+  'linux-arm64': 'linux-arm64-gnu',
+  'linux-x64-musl': 'linux-x64-musl',
+  'linux-arm64-musl': 'linux-arm64-musl',
+  'freebsd-x64': 'freebsd-x64',
+  'linux-riscv64': 'linux-riscv64-gnu',
+  'linux-s390x': 'linux-s390x-gnu',
 };
 
 // Detect if running on musl
