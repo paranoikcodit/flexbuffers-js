@@ -156,51 +156,22 @@ jobs:
         with:
           path: artifacts
       
-      - name: Create npm packages
+      - name: Prepare release assets
         run: |
-          mkdir -p npm-packages
-          
           # List all artifacts for debugging
           echo "=== Listing all artifacts ==="
           find artifacts -name "*.node" -type f
           
-          # Copy all .node files to root for packaging
+          # Copy all .node files to root
           find artifacts -name "*.node" -type f -exec cp {} . \;
           
-          # Create main package
-          cp package.json npm-packages/
-          cp README.md npm-packages/ || echo "No README.md found"
-          cp index.js npm-packages/
-          cp index.d.ts npm-packages/
+          # Copy JS files from any artifact that has them
+          find artifacts -name "index.js" -type f -exec cp {} . \; || true
+          find artifacts -name "index.d.ts" -type f -exec cp {} . \; || true
           
-          # Copy all binaries to main package
-          cp *.node npm-packages/ || echo "No .node files to copy"
-          
-          # Create tarballs
-          cd npm-packages
-          tar czf ../flexbuffers-js.tar.gz .
-          cd ..
-          
-          # Create individual platform tarballs for each binary
-          for node_file in *.node; do
-            if [ -f "$node_file" ]; then
-              platform=$(echo "$node_file" | sed 's/flexbuffers-js\.//' | sed 's/\.node//')
-              mkdir -p "npm-packages/${platform}"
-              cp "$node_file" "npm-packages/${platform}/"
-              
-              # Simple package.json for platform package
-              cat > "npm-packages/${platform}/package.json" << EOF
-          {
-            "name": "@flexbuffers-js/${platform}",
-            "version": "$(node -p "require('./package.json').version")",
-            "main": "${node_file}",
-            "files": ["*.node"]
-          }
-          EOF
-              
-              tar czf "flexbuffers-js-${platform}.tar.gz" -C "npm-packages/${platform}" .
-            fi
-          done
+          # List files to be released
+          echo "=== Files to be released ==="
+          ls -la *.node index.js index.d.ts || true
       
       - name: Create Release with Assets
         uses: softprops/action-gh-release@v1
@@ -209,8 +180,8 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            flexbuffers-js.tar.gz
-            flexbuffers-js-*.tar.gz
             flexbuffers-js.*.node
+            index.js
+            index.d.ts
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
