@@ -1,5 +1,9 @@
 # Private Repository Setup
 
+## GitHub CLI Support (Recommended)
+
+The post-install script now supports GitHub CLI (`gh`) for better authentication and faster downloads, especially for private repositories.
+
 ## GitHub Actions Workflow
 
 The `.github/workflows/release.yml` workflow automatically builds and releases your package when you push a tag starting with `v` (e.g., `v0.1.0`).
@@ -30,7 +34,28 @@ export FLEXBUFFERS_REPO_OWNER=your-username
 export FLEXBUFFERS_REPO_NAME=your-repo-name
 ```
 
-### Creating a GitHub Personal Access Token
+### Method 1: Using GitHub CLI (Recommended)
+
+1. Install GitHub CLI:
+   ```bash
+   # macOS
+   brew install gh
+   
+   # Windows
+   winget install --id GitHub.cli
+   
+   # Linux
+   sudo apt install gh  # Debian/Ubuntu
+   ```
+
+2. Authenticate with GitHub:
+   ```bash
+   gh auth login
+   ```
+
+3. The post-install script will automatically use gh CLI for downloads.
+
+### Method 2: Using GitHub Personal Access Token
 
 1. Go to GitHub Settings → Developer settings → Personal access tokens
 2. Click "Generate new token (classic)"
@@ -90,6 +115,28 @@ bun run build
 ```
 
 This requires Rust to be installed on the system.
+
+## Environment Variables
+
+### Post-Install Configuration
+
+- `FLEXBUFFERS_USE_GH_CLI`: Set to `false` to disable gh CLI usage (defaults to `true`)
+- `FLEXBUFFERS_SKIP_DOWNLOAD`: Set to `true` to skip downloading binaries
+- `FLEXBUFFERS_FORCE_BUILD`: Set to `true` to force building from source
+- `FLEXBUFFERS_CACHE_DIR`: Custom cache directory (defaults to `~/.cache/flexbuffers-js`)
+
+### Examples
+
+```bash
+# Use gh CLI (default)
+bun install
+
+# Force HTTPS downloads (disable gh CLI)
+FLEXBUFFERS_USE_GH_CLI=false bun install
+
+# Force build from source
+FLEXBUFFERS_FORCE_BUILD=true bun install
+```
 
 ## Troubleshooting
 

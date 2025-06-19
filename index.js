@@ -316,8 +316,3 @@ module.exports.FlexBuffer = FlexBuffer
 module.exports.serialize = serialize
 module.exports.deserialize = deserialize
 module.exports.isValidFlexbuffer = isValidFlexbuffer
-module.exports.isValid = isValidFlexbuffer
-
-// Legacy aliases
-module.exports.serializeToFlexbuffer = serialize
-module.exports.deserializeFromFlexbuffer = deserialize

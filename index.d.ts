@@ -14,8 +14,3 @@ export declare class FlexBuffer {
   static fromBuffer(buffer: Array<number>): FlexBuffer
   size(): number
 }
-
-// Convenience aliases
-export declare const isValid: typeof isValidFlexbuffer
-export declare const serializeToFlexbuffer: typeof serialize
-export declare const deserializeFromFlexbuffer: typeof deserialize

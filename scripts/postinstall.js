@@ -6,7 +6,6 @@ const { promisify } = require('util');
 const { exec, spawn } = require('child_process');
 const { platform, arch, homedir } = require('os');
 const https = require('https');
-const crypto = require('crypto');
 
 const execAsync = promisify(exec);
 
@@ -16,6 +15,7 @@ const REPO_NAME = process.env.FLEXBUFFERS_REPO_NAME || 'flexbuffers-js';
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || process.env.FLEXBUFFERS_GITHUB_TOKEN;
 const SKIP_DOWNLOAD = process.env.FLEXBUFFERS_SKIP_DOWNLOAD === 'true';
 const FORCE_BUILD = process.env.FLEXBUFFERS_FORCE_BUILD === 'true';
+const USE_GH_CLI = process.env.FLEXBUFFERS_USE_GH_CLI !== 'false'; // Default to true
 const CACHE_DIR = process.env.FLEXBUFFERS_CACHE_DIR || join(homedir(), '.cache', 'flexbuffers-js');
 
 // Platform mapping with more variants
@@ -122,7 +122,29 @@ async function httpsRequest(options) {
   });
 }
 
-async function getLatestRelease() {
+// Get latest release using gh CLI
+async function getLatestReleaseGh() {
+  try {
+    const { stdout } = await execAsync(`gh release view --repo ${REPO_OWNER}/${REPO_NAME} --json tagName,assets`);
+    const release = JSON.parse(stdout);
+    
+    // Transform to match API format
+    return {
+      tag_name: release.tagName,
+      assets: release.assets.map(asset => ({
+        name: asset.name,
+        url: asset.url,
+        size: asset.size || 0,
+        browser_download_url: asset.url
+      }))
+    };
+  } catch (error) {
+    throw new Error(`Failed to get release using gh CLI: ${error.message}`);
+  }
+}
+
+// Get latest release using HTTPS API
+async function getLatestReleaseHttps() {
   const options = {
     hostname: 'api.github.com',
     path: `/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest`,
@@ -147,7 +169,41 @@ async function getLatestRelease() {
   }
 }
 
-async function downloadFile(url, dest, progressCallback) {
+async function getLatestRelease() {
+  if (USE_GH_CLI && await hasGhCli()) {
+    console.log('🔧 Using gh CLI for release info...');
+    return getLatestReleaseGh();
+  } else {
+    return getLatestReleaseHttps();
+  }
+}
+
+// Download file using gh CLI
+async function downloadFileGh(assetName, dest, releaseTag) {
+  const tempDest = `${dest}.tmp`;
+  
+  try {
+    console.log('📥 Downloading with gh CLI...');
+    
+    // Use gh release download command
+    await execAsync(
+      `gh release download ${releaseTag} --repo ${REPO_OWNER}/${REPO_NAME} --pattern "${assetName}" --output "${tempDest}"`,
+      { maxBuffer: 1024 * 1024 * 10 } // 10MB buffer
+    );
+    
+    // Move temp file to final destination
+    const fs = require('fs');
+    fs.renameSync(tempDest, dest);
+    
+    console.log('✅ Downloaded successfully with gh CLI');
+  } catch (error) {
+    try { unlinkSync(tempDest); } catch {}
+    throw new Error(`gh CLI download failed: ${error.message}`);
+  }
+}
+
+// Download file using HTTPS
+async function downloadFileHttps(url, dest, progressCallback) {
   return new Promise((resolve, reject) => {
     const tempDest = `${dest}.tmp`;
     const file = createWriteStream(tempDest);
@@ -202,6 +258,44 @@ async function downloadFile(url, dest, progressCallback) {
 
     https.get(url, options, handleResponse).on('error', handleError);
   });
+}
+
+async function downloadFile(asset, dest, releaseTag, progressCallback) {
+  if (USE_GH_CLI && await hasGhCli()) {
+    try {
+      await downloadFileGh(asset.name, dest, releaseTag);
+    } catch (error) {
+      console.warn(`gh CLI download failed: ${error.message}`);
+      console.log('Falling back to HTTPS download...');
+      await downloadFileHttps(asset.url, dest, progressCallback);
+    }
+  } else {
+    await downloadFileHttps(asset.url, dest, progressCallback);
+  }
+}
+
+// Check if gh CLI is available and authenticated
+async function hasGhCli() {
+  try {
+    await execAsync('gh --version');
+    
+    // Check if authenticated for private repos
+    if (GITHUB_TOKEN) {
+      // gh CLI will use GITHUB_TOKEN env var automatically
+      return true;
+    }
+    
+    // Check if already authenticated
+    try {
+      await execAsync('gh auth status');
+      return true;
+    } catch {
+      console.warn('⚠️  gh CLI is installed but not authenticated. For private repos, run: gh auth login');
+      return true; // Still use gh CLI, it might work for public repos
+    }
+  } catch {
+    return false;
+  }
 }
 
 // Check if we have necessary build tools
@@ -359,7 +453,7 @@ async function main() {
     console.log(`\n📥 Downloading ${asset.name} (${(asset.size / 1024 / 1024).toFixed(2)} MB)...`);
     
     const progressBar = new ProgressBar(asset.size);
-    await downloadFile(asset.url, binaryPath, (current, total) => {
+    await downloadFile(asset, binaryPath, release.tag_name, (current, total) => {
       progressBar.update(current);
     });
 
